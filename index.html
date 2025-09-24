@@ -1,268 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Sea Cadets — UK Units (Full Map)</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"https://unpkg5.3/dist/MarkerCluster.css
-https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css
-<style>
-  :root { --sc-blue:#0057B8; }
-  html, body, #map { height: 100%; margin: 0; }
-  #map { background:#e6eef8; }
-  .panel {
-    position:absolute; top:10px; left:10px; background:#fff; color:#111; padding:12px 14px;
-    border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.15); z-index:10000; max-width:560px;
-    font:14px/1.4 system-ui, Segoe UI, Roboto, Helvetica, Arial;
-  }
-  .panel h1 { font-size:16px; margin:0 0 6px; }
-  .muted { color:#666; }
-  .row { margin:10px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .btn { padding:7px 11px; background:var(--sc-blue); color:#fff; border:0; border-radius:6px; cursor:pointer; }
-  .btn.secondary { background:#58667a; }
-  .btn:disabled { background:#9bbbe3; cursor:not-allowed; }
-  .mode { display:flex; gap:12px; align-items:center; }
-  .mode label { display:flex; gap:6px; align-items:center; }
-  #pasteArea { width:100%; min-height:120px; display:none; resize:vertical; padding:8px; border:1px solid #ddd; border-radius:6px;
-    font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  a { color:var(--sc-blue); }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sea Cadets — Panel Visibility Test</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #f5f7fb; font: 14px/1.4 system-ui, Segoe UI, Roboto, Helvetica, Arial; }
+    #map { height: 100%; background: #e6eef8; } /* placeholder area */
+    .panel {
+      position: absolute; top: 10px; left: 10px; background: #fff; color: #111;
+      padding: 12px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      z-index: 10000; max-width: 560px;
+    }
+    .panel h1 { margin: 0 0 6px; font-size: 16px; }
+    .ok {
+      position: absolute; top: 10px; right: 10px; background: #0b8a3a; color: #fff; padding: 6px 10px;
+      border-radius: 6px; font-weight: 600; z-index: 10001;
+    }
+    .btn { padding: 7px 11px; background: #0057B8; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="panel" role="region" aria-label="Map controls">
-    <h1>Sea Cadets — UK Units (Full Map)</h1>
-    <div class="muted">
-      Builds from the official
-      <a href="https://www.sea-cadets.org/units" target="_blank" rel="noopener">Unit Finder</a> (live) or your paste,
-      then bulk‑geocodes via <a href="https://postcodes.io/docs/overview/" target="_blank" rel="noopener">Postcodes.io</a>.
-      Overseas entries are excluded after geocoding.
-    </div>
+  <div class="ok">Control panel loaded ✅</div>
 
-    <div class="row mode" role="radiogroup" aria-label="Data mode">
-      <strong>Data mode:</strong>
-      <label><input type="radio" name="mode" value="live" checked /> Live Fetch</label>
-      <label><input type="radio" name="mode" value="paste" /> Paste Mode</label>
-      <label><input type="radio" name="mode" value="fallback" /> Local Fallback</label>
-    </div>
-
-    <textarea id="pasteArea" placeholder="Paste the entire Unit Finder page content here (Ctrl+A, Ctrl+C → Ctrl+V). Then click Build map."></textarea>
-
-    <div class="row">
-      <button id="btnBuild" class="btn">Build map</button>
-      <button id="btnZoomUK" class="btn secondary" type="button">Zoom UK</button>
-      <button id="btnPNG" class="btn secondary" type="button">Export PNG</button>
-      <button id="btnCSV" class="btn secondary" type="button">Download CSV</button>
-      <button id="btnClear" class="btn secondary" type="button">Clear</button>
-    </div>
-
-    <div id="status" class="muted" aria-live="polite">Idle.</div>
+  <div class="panel">
+    <h1>Sea Cadets — UK Units (Panel Test)</h1>
+    <p>If you can see this panel, overlay and stacking are OK.</p>
+    <button class="btn" onclick="alert('Buttons are alive ✅')">Test button</button>
   </div>
-
-  https://unpkg.com/leaflet@1.9.4/dist/leaflet.js</script>
-  https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js</script>
-  https://unpkg.com/leaflet-image/leaflet-image.js</script>
-  <script>
-    // --- Config & regex ---
-    const UNIT_FINDER_TXT = [
-      'https://r.jina.ai/http://www.sea-cadets.org/units',
-      'https://r.jina.ai/https://www.sea-cadets.org/units'
-    ];
-    const UK = new Set(['England','Scotland','Wales','Northern Ireland']);
-    const RE_URL = /https?:\/\/www\.sea-cadets\.org\/([a-z0-9\-]+)/ig;
-    const RE_PC  = /\b((GIR\s?0AA)|((AB|AL|B|BA|BB|BD|BH|BL|BN|BR|BS|BT|CA|CB|CF|CH|CM|CO|CR|CT|CV|CW|DA|DD|DE|DG|DH|DL|DN|DT|DY|E|EC|EH|EN|EX|FK|FY|G|GL|GY|GU|HA|HD|HG|HP|HR|HS|HU|HX|IG|IM|IP|IV|JE|KA|KT|KW|KY|L|LA|LD|LE|LL|LN|LS|LU|M|ME|MK|ML|N|NE|NG|NN|NP|NR|NW|OL|OX|PA|PE|PH|PL|PO|PR|RG|RH|RM|S|SA|SE|SG|SK|SL|SM|SN|SO|SP|SR|SS|ST|SW|SY|TA|TD|TF|TN|TQ|TR|TS|TW|UB|W|WA|WC|WD|WF|WN|WR|WS|WV|YO|ZE|BT)\d[\dA-Z]?\s?\d[ABD-HJLNP-UW-Z]{2}))\b/ig;
-    const RE_NAME = /^([A-Z0-9][A-Za-z0-9 &'()\-\.,]+?)\s*<\s*1\s*mile away\s*/i;
-
-    // --- Fallback sample (ensures a render even if everything else fails) ---
-    const LOCAL_FALLBACK = [
-      { unit: 'Aberdeen',       postcode: 'AB11 5DQ', url: 'https://www.sea-cadets.org/aberdeen' },
-      { unit: 'Abingdon',       postcode: 'OX14 3GD', url: 'https://www.sea-cadets.org/abingdon' },
-      { unit: 'Accrington',     postcode: 'BB5 3LT',  url: 'https://www.sea-cadets.org/accrington' },
-      { unit: 'Bridge Of Don',  postcode: 'AB23 8DB', url: 'https://www.sea-cadets.org/bridgeofdon' },
-      { unit: 'Cardiff',        postcode: 'CF10 4LY', url: 'https://www.sea-cadets.org/cardiff' }
-    ];
-
-    // --- Helpers ---
-    const $ = id => document.getElementById(id);
-    const setStatus = m => $('status').textContent = m;
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-    const mode  = () => (document.querySelector('input[name="mode"]:checked')||{}).value;
-
-    // --- Map ---
-    const map = L.map('map', { zoomControl: true }).setView([54.5, -3], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18, attribution: '&copy; OpenStreetMap contributors', crossOrigin: true
-    }).addTo(map);
-    const cluster = L.markerClusterGroup();
-    map.addLayer(cluster);
-    const bounds = L.latLngBounds([]);
-
-    let currentUnits = [];   // original units parsed (pre‑geocode)
-    let plotted = 0;
-
-    // --- UI: toggle paste area ---
-    function togglePaste() {
-      $('pasteArea').style.display = (mode() === 'paste') ? 'block' : 'none';
-    }
-    document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', togglePaste));
-    togglePaste();
-
-    // --- Get directory text (live) ---
-    async function fetchUnitFinderText() {
-      setStatus('Fetching Unit Finder text…');
-      for (const u of UNIT_FINDER_TXT) {
-        try {
-          const r = await fetch(u, { cache: 'no-store' });
-          if (r.ok) return await r.text();
-        } catch (e) { /* try next */ }
-      }
-      throw new Error('Could not fetch Unit Finder text (blocked). Use Paste Mode.');
-    }
-
-    // --- Parse units from text ---
-    function parseUnits(txt) {
-      setStatus('Parsing units…');
-      const slugs = []; let m; RE_URL.lastIndex = 0;
-      while ((m = RE_URL.exec(txt)) !== null) slugs.push(m[1]);
-
-      const out = [];
-      for (const slug of slugs) {
-        const idx = txt.indexOf('www.sea-cadets.org/' + slug);
-        if (idx === -1) continue;
-        const ctx = txt.slice(Math.max(0, idx - 520), idx); // context before link
-
-        // name line
-        let unit = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        const linesBack = ctx.split(/\n|\r/).slice(-8).join(' ');
-        const mn = linesBack.match(RE_NAME);
-        if (mn && mn[1]) unit = mn[1].trim();
-
-        // postcode (last match in ctx)
-        let pc = null, pm; RE_PC.lastIndex = 0;
-        while ((pm = RE_PC.exec(ctx)) !== null) pc = pm[0];
-        if (!pc) continue;
-
-        out.push({ unit, postcode: pc.toUpperCase().replace(/\s+/g,' '), url: 'https://www.sea-cadets.org/' + slug });
-      }
-
-      // dedupe
-      const seen = new Set(), dedup = [];
-      for (const r of out) {
-        const k = r.unit.toLowerCase() + '|' + r.postcode;
-        if (!seen.has(k)) { seen.add(k); dedup.push(r); }
-      }
-      return dedup;
-    }
-
-    // --- Bulk geocode (fast) ---
-    async function bulkGeocode(entries, chunkSize = 90) {
-      setStatus(`Geocoding ${entries.length} postcodes (bulk)…`);
-      const out = [];
-      for (let i = 0; i < entries.length; i += chunkSize) {
-        const chunk = entries.slice(i, i + chunkSize);
-        const body  = { postcodes: chunk.map(e => e.postcode) };
-        const r = await fetch('https://api.postcodes.io/postcodes', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-        });
-        if (!r.ok) throw new Error('Postcodes.io bulk geocoding failed.');
-        const data = await r.json();
-        data.result.forEach((row, j) => {
-          const src = chunk[j];
-          if (row && row.result && UK.has(row.result.country)) {
-            out.push({
-              unit: src.unit, postcode: src.postcode, url: src.url,
-              lat: row.result.latitude, lon: row.result.longitude
-            });
-          }
-        });
-        await sleep(120); // polite pause
-        setStatus(`Geocoded ${Math.min(i+chunk.length, entries.length)} / ${entries.length}…`);
-      }
-      return out;
-    }
-
-    function clearMap() {
-      cluster.clearLayers();
-      plotted = 0;
-      setStatus('Cleared.');
-    }
-
-    async function buildMap() {
-      try {
-        $('btnBuild').disabled = true;
-        clearMap();
-
-        let txt = '';
-        const m = mode();
-        if (m === 'paste') {
-          txt = $('pasteArea').value.trim();
-          if (!txt) throw new Error('Paste Mode is selected but textarea is empty.');
-        } else if (m === 'live') {
-          txt = await fetchUnitFinderText(); // Unit Finder: authoritative directory
-        } else {
-          // local fallback
-          currentUnits = LOCAL_FALLBACK.slice();
-          setStatus('Using local fallback sample.');
-        }
-
-        if (m !== 'fallback') {
-          const parsed = parseUnits(txt);
-          if (!parsed.length) throw new Error('No units parsed from text.');
-          // filter to UK-format postcodes pre‑geocode
-          currentUnits = parsed.filter(u => /\b[A-Z]{1,2}\d[\dA-Z]?\s?\d[ABD-HJLNP-UW-Z]{2}\b/.test(u.postcode));
-        }
-
-        const geo = await bulkGeocode(currentUnits);
-        if (!geo.length) throw new Error('No UK geocodes returned.');
-
-        geo.forEach(g => {
-          const marker = L.marker([g.lat, g.lon]);
-          marker.bindPopup(`<strong>${g.unit}</strong><br>${g.postcode}<br>${g.url}${g.url}</a>`);
-          cluster.addLayer(marker);
-          bounds.extend([g.lat, g.lon]);
-          plotted++;
-        });
-
-        if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
-        setStatus(`Plotted ${plotted} UK units.`);
-      } catch (err) {
-        setStatus('Error: ' + err.message);
-      } finally {
-        $('btnBuild').disabled = false;
-      }
-    }
-
-    function exportPNG() {
-      if (!plotted) { alert('Build the map first.'); return; }
-      setStatus('Rendering PNG…');
-      leafletImage(map, (err, canvas) => {
-        if (err) { setStatus('PNG export failed.'); return; }
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = 'uk_sea_cadets_map_full.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        setStatus('PNG downloaded.');
-      });
-    }
-
-    function exportCSV() {
-      if (!currentUnits.length) { alert('Build the map first.'); return; }
-      const header = 'unit,postcode,url\n';
-      const rows = currentUnits.map(u => `${u.unit.replaceAll(',', ' ')},${u.postcode},${u.url}`).join('\n');
-      const blob = new Blob([header + rows], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'uk_sea_cadets_units_full.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-    }
-
-    // --- Buttons ---
-    $('btnBuild').addEventListener('click', buildMap);
-    $('btnZoomUK').addEventListener('click', () => map.fitBounds([[49.5,-8.5],[60.9,2.2]]));
-    $('btnPNG').addEventListener('click', exportPNG);
-    $('btnCSV').addEventListener('click', exportCSV);
-    $('btnClear').addEventListener('click', clearMap);
-  </script>
 </body>
+</html>
